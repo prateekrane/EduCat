@@ -11,11 +11,13 @@ import {
     Animated,
     Alert,
     ImageBackground,
-    ScrollView
+    ScrollView,
+    StatusBar
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Animatable from 'react-native-animatable';
+import LottieView from 'lottie-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,12 +28,15 @@ const SignUpScreen = ({ navigation }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [shakeAnimation] = useState(new Animated.Value(0));
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSignUp = async () => {
+        setIsLoading(true);
         API_KEY = "AIzaSyBLUHWBolUBywqJJYLuEkv48zhLOklh-TQ";
         // Basic validation
         if (!name || !email || !password || !confirmPassword) {
             Alert.alert('Error', 'Please fill in all fields');
+            setIsLoading(false);
             return;
         }
 
@@ -60,6 +65,7 @@ const SignUpScreen = ({ navigation }) => {
                     useNativeDriver: true,
                 }),
             ]).start();
+            setIsLoading(false);
             return;
         }
 
@@ -98,11 +104,18 @@ const SignUpScreen = ({ navigation }) => {
                 'Error',
                 error.message || 'Failed to create account. Please try again.'
             );
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
         <View style={styles.container}>
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor="transparent"
+                translucent={true}
+            />
             <ImageBackground
                 source={require('../assets/backgroundimage.jpg')}
                 style={styles.backgroundImage}
@@ -130,79 +143,90 @@ const SignUpScreen = ({ navigation }) => {
                                 <Text style={styles.subHeaderText}>Sign up to get started</Text>
                             </Animatable.View>
 
-                            <Animated.View
-                                style={[
-                                    styles.formContainer,
-                                    {
-                                        transform: [{
-                                            translateX: shakeAnimation
-                                        }]
-                                    }
-                                ]}
-                            >
-                                <View style={styles.inputContainer}>
-                                    <MaterialIcons name="person" size={24} color="#666" style={styles.inputIcon} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Full Name"
-                                        value={name}
-                                        onChangeText={setName}
-                                        autoCapitalize="words"
+                            {isLoading ? (
+                                <View style={styles.loadingContainer}>
+                                    <LottieView
+                                        source={require('../assets/LoadingMain.json')}
+                                        autoPlay
+                                        loop
+                                        style={styles.loadingAnimation}
                                     />
                                 </View>
-
-                                <View style={styles.inputContainer}>
-                                    <MaterialIcons name="email" size={24} color="#666" style={styles.inputIcon} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Email"
-                                        value={email}
-                                        onChangeText={setEmail}
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Password"
-                                        value={password}
-                                        onChangeText={setPassword}
-                                        secureTextEntry={!showPassword}
-                                    />
-                                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                        <MaterialIcons
-                                            name={showPassword ? "visibility" : "visibility-off"}
-                                            size={24}
-                                            color="#666"
+                            ) : (
+                                <Animated.View
+                                    style={[
+                                        styles.formContainer,
+                                        {
+                                            transform: [{
+                                                translateX: shakeAnimation
+                                            }]
+                                        }
+                                    ]}
+                                >
+                                    <View style={styles.inputContainer}>
+                                        <MaterialIcons name="person" size={24} color="#666" style={styles.inputIcon} />
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Full Name"
+                                            value={name}
+                                            onChangeText={setName}
+                                            autoCapitalize="words"
                                         />
+                                    </View>
+
+                                    <View style={styles.inputContainer}>
+                                        <MaterialIcons name="email" size={24} color="#666" style={styles.inputIcon} />
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Email"
+                                            value={email}
+                                            onChangeText={setEmail}
+                                            keyboardType="email-address"
+                                            autoCapitalize="none"
+                                        />
+                                    </View>
+
+                                    <View style={styles.inputContainer}>
+                                        <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Password"
+                                            value={password}
+                                            onChangeText={setPassword}
+                                            secureTextEntry={!showPassword}
+                                        />
+                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                            <MaterialIcons
+                                                name={showPassword ? "visibility" : "visibility-off"}
+                                                size={24}
+                                                color="#666"
+                                            />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.inputContainer}>
+                                        <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Confirm Password"
+                                            value={confirmPassword}
+                                            onChangeText={setConfirmPassword}
+                                            secureTextEntry={!showPassword}
+                                        />
+                                    </View>
+
+                                    <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
+                                        <Text style={styles.signUpButtonText}>Sign Up</Text>
                                     </TouchableOpacity>
-                                </View>
 
-                                <View style={styles.inputContainer}>
-                                    <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Confirm Password"
-                                        value={confirmPassword}
-                                        onChangeText={setConfirmPassword}
-                                        secureTextEntry={!showPassword}
-                                    />
-                                </View>
-
-                                <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-                                    <Text style={styles.signUpButtonText}>Sign Up</Text>
-                                </TouchableOpacity>
-
-                                <View style={styles.loginContainer}>
-                                    <Text style={styles.loginText}>Already have an account? </Text>
-                                    <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                                        <Text style={styles.loginLink}>Login</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </Animated.View>
+                                    <View style={styles.loginContainer}>
+                                        <Text style={styles.loginText}>Already have an account? </Text>
+                                        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                                            <Text style={styles.loginLink}>Login</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </Animated.View>
+                            )}
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -278,7 +302,7 @@ const styles = StyleSheet.create({
         fontSize: Math.min(width * 0.04, 16),
     },
     signUpButton: {
-        backgroundColor: '#007AFF',
+        backgroundColor: '#716868',
         padding: height * 0.02,
         borderRadius: 10,
         alignItems: 'center',
@@ -307,9 +331,18 @@ const styles = StyleSheet.create({
         fontSize: Math.min(width * 0.04, 16),
     },
     loginLink: {
-        color: '#007AFF',
+        color: '#3e3636',
         fontSize: Math.min(width * 0.04, 16),
         fontWeight: 'bold',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingAnimation: {
+        width: 100,
+        height: 100,
     },
 });
 

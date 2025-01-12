@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Image, ScrollView, Platform, ActivityIndicator, Dimensions, Modal, ImageBackground, Animated } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Image, ScrollView, Platform, ActivityIndicator, Dimensions, Modal, ImageBackground, Animated, StatusBar } from 'react-native';
 import React, { useState, useRef } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -43,6 +43,8 @@ const formatResponse = (text) => {
     });
 };
 
+const API_KEY = '2fca9ed72d88957'; // Replace with your actual API key
+
 const PhysicsScreen = () => {
     const [question, setQuestion] = useState('');
     const [answer, setAnswer] = useState('');
@@ -51,6 +53,70 @@ const PhysicsScreen = () => {
     const [isChatVisible, setIsChatVisible] = useState(false);
     const animationRef = useRef(null);
     const slideAnim = useRef(new Animated.Value(height)).current;
+    const chatButtonAnim = useRef(new Animated.Value(1)).current;
+
+    const processImageWithOCR = async (imageUri) => {
+        try {
+            setIsLoading(true);
+
+            // Create form data
+            const formData = new FormData();
+
+            // Modify the file append to ensure proper image data is sent
+            formData.append('file', {
+                uri: Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri,
+                type: 'image/jpeg',
+                name: 'image.jpg',
+            });
+
+            formData.append('language', 'eng');
+            formData.append('apikey', API_KEY);
+            formData.append('isOverlayRequired', false);
+            formData.append('detectOrientation', true);
+            formData.append('scale', true);
+            formData.append('OCREngine', '2'); // Using more accurate OCR engine
+
+            console.log('Sending request to OCR API...'); // Debug log
+
+            const ocrResponse = await fetch('https://api.ocr.space/parse/image', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json',
+                    'apikey': API_KEY,
+                },
+            });
+
+            console.log('Response status:', ocrResponse.status); // Debug log
+
+            const ocrResult = await ocrResponse.json();
+            console.log('OCR Result:', JSON.stringify(ocrResult)); // Debug log
+
+            if (ocrResult.IsErroredOnProcessing) {
+                setAnswer(`OCR Processing Error: ${ocrResult.ErrorMessage || 'Unknown error'}`);
+                return;
+            }
+
+            if (ocrResult.ParsedResults && ocrResult.ParsedResults.length > 0) {
+                const parsedText = ocrResult.ParsedResults[0].ParsedText;
+                if (parsedText && parsedText.trim()) {
+                    setQuestion(parsedText.trim());
+                    setAnswer('Text successfully extracted from image.');
+                    setSelectedImage(null); // Clear the image after successful text extraction
+                } else {
+                    setAnswer("No readable text found in the image. Please try again with a clearer image.");
+                }
+            } else {
+                setAnswer("Could not process the image. Please ensure the image contains clear text.");
+            }
+
+        } catch (error) {
+            console.error('Detailed OCR Error:', error);
+            setAnswer(`Error processing image: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleSend = async () => {
         if (question.trim()) {
@@ -103,285 +169,314 @@ const PhysicsScreen = () => {
 
     const handleTakePhoto = async () => {
         try {
-            // Request camera permissions
             const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
             if (cameraStatus !== 'granted') {
                 alert('Sorry, we need camera permissions to make this work!');
                 return;
             }
 
-            // Request media library permissions
-            const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (mediaStatus !== 'granted') {
-                alert('Sorry, we need media library permissions to make this work!');
-                return;
-            }
-
-            // Launch camera
             const result = await ImagePicker.launchCameraAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [4, 3],
-                quality: 1,
+                quality: 0.8, // Slightly reduced quality for better upload performance
+                base64: false,
             });
-
-            console.log('Camera Result:', result); // Add this for debugging
 
             if (!result.canceled) {
                 setSelectedImage(result.assets[0].uri);
+                await processImageWithOCR(result.assets[0].uri);
             }
         } catch (error) {
             console.error('Camera Error:', error);
-            alert('Error accessing camera. Please try again.');
+            setAnswer("Error: Failed to access camera. Please try again.");
         }
     };
 
     const handlePickImage = async () => {
         try {
-            // Request media library permissions
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
                 alert('Sorry, we need gallery permissions to make this work!');
                 return;
             }
 
-            // Launch image library
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [4, 3],
-                quality: 1,
+                quality: 0.8, // Slightly reduced quality for better upload performance
+                base64: false,
             });
-
-            console.log('Gallery Result:', result); // Add this for debugging
 
             if (!result.canceled) {
                 setSelectedImage(result.assets[0].uri);
+                await processImageWithOCR(result.assets[0].uri);
             }
         } catch (error) {
             console.error('Gallery Error:', error);
-            alert('Error accessing gallery. Please try again.');
+            setAnswer("Error: Failed to access gallery. Please try again.");
         }
     };
 
     const handleAnimationPress = () => {
+        // First animate the button to fade out and move down
+        Animated.parallel([
+            Animated.timing(chatButtonAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true
+            }),
+            Animated.spring(slideAnim, {
+                toValue: 0,
+                useNativeDriver: true,
+                tension: 50,
+                friction: 7
+            })
+        ]).start();
+
+        // Play the animation and show chat
         if (animationRef.current) {
             animationRef.current.play();
         }
         setIsChatVisible(true);
-        Animated.spring(slideAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 7
-        }).start();
     };
 
     const handleClose = () => {
-        Animated.timing(slideAnim, {
-            toValue: height,
-            duration: 300,
-            useNativeDriver: true
-        }).start(() => setIsChatVisible(false));
+        Animated.parallel([
+            Animated.timing(slideAnim, {
+                toValue: height,
+                duration: 300,
+                useNativeDriver: true
+            }),
+            Animated.timing(chatButtonAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true
+            })
+        ]).start(() => setIsChatVisible(false));
     };
 
     return (
-        <ImageBackground
-            source={require('../assets/phybackground.jpg')}
-            style={styles.container}
-            imageStyle={{ opacity: 0.4 }}
-        >
-            <View style={styles.overlay}>
-                {/* Fixed Header */}
-                <LinearGradient
-                    colors={['#3e3636', '#5d5555', '#726666']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={styles.header}
-                >
-                    <Animatable.Text
-                        animation="fadeInDown"
-                        style={styles.headerText}
+        <View style={styles.container}>
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor="transparent"
+                translucent={true}
+            />
+            <ImageBackground
+                source={require('../assets/phybackground.jpg')}
+                style={styles.container}
+                imageStyle={{ opacity: 0.4 }}
+            >
+                <View style={styles.overlay}>
+                    {/* Fixed Header */}
+                    <LinearGradient
+                        colors={['#3e3636', '#5d5555', '#726666']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                        style={styles.header}
                     >
-                        Physics
-                    </Animatable.Text>
-                    <Text style={styles.subHeaderText}>Ask anything about physics</Text>
-                </LinearGradient>
-
-                {/* Scrollable Content */}
-                <ScrollView
-                    style={styles.content}
-                    bounces={false}
-                    keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={styles.scrollContent}
-                >
-                    {/* Answer Box */}
-                    <Animatable.View
-                        animation="fadeInUp"
-                        duration={1000}
-                        style={styles.answerBox}
-                    >
-                        <LinearGradient
-                            colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-                            style={styles.answerGradient}
+                        <Animatable.Text
+                            animation="fadeInDown"
+                            style={styles.headerText}
                         >
-                            <View style={styles.answerHeader}>
-                                <MaterialIcons name="psychology" size={24} color="#4158D0" />
-                                <Text style={styles.answerHeaderText}>AI Response</Text>
-                            </View>
-                            <ScrollView
-                                style={styles.answerScrollView}
-                                nestedScrollEnabled={true}
-                                showsVerticalScrollIndicator={true}
-                                contentContainerStyle={styles.answerScrollViewContent}
-                            >
-                                {isLoading ? (
-                                    <View style={styles.loadingContainer}>
-                                        <LottieView
-                                            source={require('../assets/loading.json')}
-                                            autoPlay
-                                            loop
-                                            style={styles.loadingAnimation}
-                                        />
-                                        <Text style={styles.loadingText}>Processing your question...</Text>
-                                    </View>
-                                ) : answer ? (
-                                    <View style={styles.formattedAnswer}>
-                                        {formatResponse(answer)}
-                                    </View>
-                                ) : (
-                                    <View style={styles.placeholderContainer}>
-                                        <LottieView
-                                            source={require('../assets/empty-state.json')}
-                                            autoPlay
-                                            loop
-                                            style={styles.emptyAnimation}
-                                        />
-                                        <Text style={styles.placeholderText}>
-                                            Your answer will appear here
-                                        </Text>
-                                    </View>
-                                )}
-                            </ScrollView>
-                        </LinearGradient>
-                    </Animatable.View>
+                            Physics
+                        </Animatable.Text>
+                        <Text style={styles.subHeaderText}>Ask anything about physics</Text>
+                    </LinearGradient>
 
-                    {/* Selected Image Preview */}
-                    {selectedImage && (
+                    {/* Scrollable Content */}
+                    <ScrollView
+                        style={styles.content}
+                        bounces={false}
+                        keyboardShouldPersistTaps="handled"
+                        contentContainerStyle={styles.scrollContent}
+                    >
+                        {/* Answer Box */}
                         <Animatable.View
-                            animation="zoomIn"
-                            style={styles.imagePreviewContainer}
+                            animation="fadeInUp"
+                            duration={1000}
+                            style={styles.answerBox}
                         >
-                            <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
-                            <TouchableOpacity
-                                style={styles.removeImageButton}
-                                onPress={() => setSelectedImage(null)}
+                            <LinearGradient
+                                colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                                style={styles.answerGradient}
                             >
-                                <MaterialIcons name="close" size={20} color="white" />
-                            </TouchableOpacity>
+                                <View style={styles.answerHeader}>
+                                    <MaterialIcons name="psychology" size={24} color="#4158D0" />
+                                    <Text style={styles.answerHeaderText}>AI Response</Text>
+                                </View>
+                                <ScrollView
+                                    style={styles.answerScrollView}
+                                    nestedScrollEnabled={true}
+                                    showsVerticalScrollIndicator={true}
+                                    contentContainerStyle={styles.answerScrollViewContent}
+                                >
+                                    {isLoading ? (
+                                        <View style={styles.loadingContainer}>
+                                            <LottieView
+                                                source={require('../assets/loading.json')}
+                                                autoPlay
+                                                loop
+                                                style={styles.loadingAnimation}
+                                            />
+                                            <Text style={styles.loadingText}>Processing your question...</Text>
+                                        </View>
+                                    ) : answer ? (
+                                        <View style={styles.formattedAnswer}>
+                                            {formatResponse(answer)}
+                                        </View>
+                                    ) : (
+                                        <View style={styles.placeholderContainer}>
+                                            <LottieView
+                                                source={require('../assets/empty-state.json')}
+                                                autoPlay
+                                                loop
+                                                style={styles.emptyAnimation}
+                                            />
+                                            <Text style={styles.placeholderText}>
+                                                Your answer will appear here
+                                            </Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+                            </LinearGradient>
                         </Animatable.View>
-                    )}
 
-                    {/* Input Section */}
-                    <View style={styles.inputSection}>
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={styles.input}
-                                value={question}
-                                onChangeText={setQuestion}
-                                placeholder="Type your physics question..."
-                                placeholderTextColor="#999"
-                                multiline
-                                maxLength={1000}
-                            />
-                            <View style={styles.inputButtons}>
+                        {/* Selected Image Preview */}
+                        {selectedImage && (
+                            <Animatable.View
+                                animation="zoomIn"
+                                style={styles.imagePreviewContainer}
+                            >
+                                <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
                                 <TouchableOpacity
-                                    style={styles.iconButton}
-                                    onPress={handleTakePhoto}
+                                    style={styles.removeImageButton}
+                                    onPress={() => setSelectedImage(null)}
                                 >
-                                    <MaterialIcons name="camera-alt" size={24} color="#4158D0" />
+                                    <MaterialIcons name="close" size={20} color="white" />
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.iconButton, { marginHorizontal: 10 }]}
-                                    onPress={handlePickImage}
-                                >
-                                    <MaterialIcons name="image" size={24} color="#4158D0" />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.sendButton, !question.trim() && styles.sendButtonDisabled]}
-                                    onPress={handleSend}
-                                    disabled={!question.trim()}
-                                >
-                                    <LinearGradient
-                                        colors={['#3e3636', '#5d5555']}
-                                        style={styles.sendButtonGradient}
+                            </Animatable.View>
+                        )}
+
+                        {/* Input Section */}
+                        <View style={styles.inputSection}>
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={styles.input}
+                                    value={question}
+                                    onChangeText={setQuestion}
+                                    placeholder="Type your physics question..."
+                                    placeholderTextColor="#999"
+                                    multiline
+                                    maxLength={1000}
+                                />
+                                <View style={styles.inputButtons}>
+                                    <TouchableOpacity
+                                        style={styles.iconButton}
+                                        onPress={handleTakePhoto}
                                     >
-                                        <MaterialIcons name="send" size={24} color="white" />
-                                    </LinearGradient>
-                                </TouchableOpacity>
+                                        <MaterialIcons name="camera-alt" size={24} color="#3e3636" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.iconButton, { marginHorizontal: 10 }]}
+                                        onPress={handlePickImage}
+                                    >
+                                        <MaterialIcons name="image" size={24} color="#3e3636" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.sendButton, !question.trim() && styles.sendButtonDisabled]}
+                                        onPress={handleSend}
+                                        disabled={!question.trim()}
+                                    >
+                                        <LinearGradient
+                                            colors={['#3e3636', '#5d5555']}
+                                            style={styles.sendButtonGradient}
+                                        >
+                                            <MaterialIcons name="send" size={24} color="white" />
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
-                    </View>
 
-                    {/* Add extra padding at bottom */}
-                    <View style={styles.bottomPadding} />
-                </ScrollView>
+                        {/* Add extra padding at bottom */}
+                        <View style={styles.bottomPadding} />
+                    </ScrollView>
 
-                {/* Fixed Chatbot Button */}
-                <Animatable.View
-                    animation="bounceIn"
-                    delay={500}
-                    style={styles.chatbotButton}
-                >
-                    <TouchableOpacity onPress={handleAnimationPress}>
-                        <LinearGradient
-                            colors={['#ded4d4', '#efe5e5']}
-                            style={styles.chatbotGradient}
-                        >
-                            <View style={styles.chatbotContent}>
-                                <LottieView
-                                    ref={animationRef}
-                                    source={require('../assets/chatbot.json')}
-                                    autoPlay
-                                    loop
-                                    style={styles.chatbotAnimation}
-                                />
-                                <Text style={styles.chatbotText}>AI</Text>
-                            </View>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </Animatable.View>
-
-                {/* Chat Modal */}
-                {isChatVisible && (
-                    <View style={styles.modalContainer}>
+                    {/* Fixed Chatbot Button */}
+                    <Animated.View
+                        animation="bounceIn"
+                        delay={500}
+                        style={[
+                            styles.chatbotButton,
+                            {
+                                opacity: chatButtonAnim,
+                                transform: [
+                                    {
+                                        translateY: chatButtonAnim.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [50, 0]
+                                        })
+                                    }
+                                ]
+                            }
+                        ]}
+                    >
                         <TouchableOpacity
-                            style={styles.blurOverlay}
-                            activeOpacity={1}
-                            onPress={handleClose}
-                        />
-                        <Animated.View
-                            style={[
-                                styles.chatContainer,
-                                {
-                                    transform: [{ translateY: slideAnim }]
-                                }
-                            ]}
+                            onPress={handleAnimationPress}
+                            style={!isChatVisible ? styles.chatbotTouchable : styles.chatbotHidden}
                         >
-                            <View style={styles.chatHeader}>
-                                <Text style={styles.chatTitle}>Virtual Consultant</Text>
-                                <TouchableOpacity onPress={handleClose}>
-                                    <MaterialIcons name="close" size={24} color="#333" />
-                                </TouchableOpacity>
-                            </View>
-                            <View style={styles.chatContent}>
-                                <ChatBotScreen />
-                            </View>
-                        </Animated.View>
-                    </View>
-                )}
-            </View>
-        </ImageBackground>
+                            <LinearGradient
+                                colors={['#ded4d4', '#efe5e5']}
+                                style={styles.chatbotGradient}
+                            >
+                                <View style={styles.chatbotContent}>
+                                    <LottieView
+                                        ref={animationRef}
+                                        source={require('../assets/chatbot.json')}
+                                        autoPlay
+                                        loop
+                                        style={styles.chatbotAnimation}
+                                    />
+                                    <Text style={styles.chatbotText}>AI</Text>
+                                </View>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </Animated.View>
+
+                    {/* Chat Modal */}
+                    {isChatVisible && (
+                        <View style={styles.modalContainer}>
+                            <TouchableOpacity
+                                style={styles.blurOverlay}
+                                activeOpacity={1}
+                                onPress={handleClose}
+                            />
+                            <Animated.View
+                                style={[
+                                    styles.chatContainer,
+                                    {
+                                        transform: [{ translateY: slideAnim }]
+                                    }
+                                ]}
+                            >
+                                <View style={styles.chatHeader}>
+                                    <Text style={styles.chatTitle}>Virtual Consultant</Text>
+                                    <TouchableOpacity onPress={handleClose}>
+                                        <MaterialIcons name="close" size={24} color="#333" />
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.chatContent}>
+                                    <ChatBotScreen />
+                                </View>
+                            </Animated.View>
+                        </View>
+                    )}
+                </View>
+            </ImageBackground>
+        </View>
     );
 };
 
@@ -521,8 +616,8 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     input: {
-        minHeight: 40,
-        maxHeight: 120,
+        minHeight: 60,
+        maxHeight: 160,
         fontSize: 16,
         color: '#3e3636',
         paddingHorizontal: 10,

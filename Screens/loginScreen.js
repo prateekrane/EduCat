@@ -10,11 +10,13 @@ import {
     Platform,
     Animated,
     Alert,
-    ImageBackground
+    ImageBackground,
+    StatusBar
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Animatable from 'react-native-animatable';
+import LottieView from 'lottie-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,12 +25,15 @@ const LoginScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [shakeAnimation] = useState(new Animated.Value(0));
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = async () => {
+        setIsLoading(true);
         API_KEY = "AIzaSyBLUHWBolUBywqJJYLuEkv48zhLOklh-TQ";
         // Basic validation
         if (!email || !password) {
             Alert.alert('Error', 'Please fill in all fields');
+            setIsLoading(false);
             return;
         }
 
@@ -94,11 +99,18 @@ const LoginScreen = ({ navigation }) => {
                     error.message === 'INVALID_PASSWORD' ? 'Invalid password' :
                         'Login failed. Please try again.'
             );
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
         <View style={styles.container}>
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor="transparent"
+                translucent={true}
+            />
             <ImageBackground
                 source={require('../assets/backgroundimage.jpg')}
                 style={styles.backgroundImage}
@@ -120,57 +132,68 @@ const LoginScreen = ({ navigation }) => {
                             <Text style={styles.subHeaderText}>Sign in to continue</Text>
                         </Animatable.View>
 
-                        <Animated.View
-                            style={[
-                                styles.formContainer,
-                                {
-                                    transform: [{
-                                        translateX: shakeAnimation
-                                    }]
-                                }
-                            ]}
-                        >
-                            <View style={styles.inputContainer}>
-                                <MaterialIcons name="email" size={24} color="#666" style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Email"
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
+                        {isLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <LottieView
+                                    source={require('../assets/LoadingMain.json')}
+                                    autoPlay
+                                    loop
+                                    style={styles.loadingAnimation}
                                 />
                             </View>
-
-                            <View style={styles.inputContainer}>
-                                <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Password"
-                                    value={password}
-                                    onChangeText={setPassword}
-                                    secureTextEntry={!showPassword}
-                                />
-                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                    <MaterialIcons
-                                        name={showPassword ? "visibility" : "visibility-off"}
-                                        size={24}
-                                        color="#666"
+                        ) : (
+                            <Animated.View
+                                style={[
+                                    styles.formContainer,
+                                    {
+                                        transform: [{
+                                            translateX: shakeAnimation
+                                        }]
+                                    }
+                                ]}
+                            >
+                                <View style={styles.inputContainer}>
+                                    <MaterialIcons name="email" size={24} color="#666" style={styles.inputIcon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Email"
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
                                     />
-                                </TouchableOpacity>
-                            </View>
+                                </View>
 
-                            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                                <Text style={styles.loginButtonText}>Login</Text>
-                            </TouchableOpacity>
+                                <View style={styles.inputContainer}>
+                                    <MaterialIcons name="lock" size={24} color="#666" style={styles.inputIcon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Password"
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        secureTextEntry={!showPassword}
+                                    />
+                                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                        <MaterialIcons
+                                            name={showPassword ? "visibility" : "visibility-off"}
+                                            size={24}
+                                            color="#666"
+                                        />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <View style={styles.signupContainer}>
-                                <Text style={styles.signupText}>Don't have an account? </Text>
-                                <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                                    <Text style={styles.signupLink}>Sign Up</Text>
+                                <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+                                    <Text style={styles.loginButtonText}>Login</Text>
                                 </TouchableOpacity>
-                            </View>
-                        </Animated.View>
+
+                                <View style={styles.signupContainer}>
+                                    <Text style={styles.signupText}>Don't have an account? </Text>
+                                    <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                                        <Text style={styles.signupLink}>Sign Up</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </Animated.View>
+                        )}
                     </View>
                 </KeyboardAvoidingView>
             </ImageBackground>
@@ -271,9 +294,18 @@ const styles = StyleSheet.create({
         fontSize: Math.min(width * 0.04, 16),
     },
     signupLink: {
-        color: '#007AFF',
+        color: '#3e3636',
         fontSize: Math.min(width * 0.04, 16),
         fontWeight: 'bold',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingAnimation: {
+        width: 100,
+        height: 100,
     },
 });
 

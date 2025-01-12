@@ -6,6 +6,7 @@ import {
     Dimensions,
     Animated,
     ImageBackground,
+    StatusBar,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -46,11 +47,17 @@ const SplashScreen = ({ navigation }) => {
     };
 
     return (
-        <ImageBackground
-            source={require('../assets/backgroundimage.jpg')} // Replace with your background image path
-            style={styles.background}
-        >
-            <View style={styles.container}>
+        <View style={styles.container}>
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor="transparent"
+                translucent={true}
+            />
+            <ImageBackground
+                source={require('../assets/backgroundimage.jpg')}
+                style={styles.background}
+                resizeMode="cover"
+            >
                 <View style={styles.contentContainer}>
                     <LottieView
                         source={require('../assets/front.json')}
@@ -77,24 +84,25 @@ const SplashScreen = ({ navigation }) => {
                         EduCat
                     </Animated.Text>
                 </View>
-            </View>
-        </ImageBackground>
+            </ImageBackground>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    background: {
-        flex: 1,
-        resizeMode: 'cover', // Ensures the image covers the screen
-    },
     container: {
         flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)', // Optional: Add slight overlay
+    },
+    background: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
     },
     contentContainer: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.7)', // Semi-transparent white overlay
         paddingHorizontal: width * 0.1, // 10% padding on each side
     },
     animation: {
