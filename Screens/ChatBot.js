@@ -10,7 +10,7 @@ const ChatBotScreen = () => {
     const flatListRef = useRef(null);
 
     // Initialize Gemini AI
-    const genAI = new GoogleGenerativeAI("AIzaSyC19v5WFSB82-hq24_pckZYPp6VKCNfcBY"); // Replace with your actual API key
+    const genAI = new GoogleGenerativeAI(""); // Replace with your actual API key
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const handleSend = async () => {
