@@ -43,7 +43,7 @@ const formatResponse = (text) => {
     });
 };
 
-const API_KEY = '2fca9ed72d88957'; // Replace with your actual API key
+const API_KEY = ''; // Replace with your actual API key
 
 const MathematicsScreen = () => {
     const [question, setQuestion] = useState('');
@@ -128,7 +128,7 @@ const MathematicsScreen = () => {
                 try {
                     const client = new NLPCloudClient({
                         model: 'finetuned-llama-3-70b',
-                        token: 'bb9f5ba695aba792cc57d12e4a8da38a205e54bd',
+                        token: '',
                         gpu: true
                     });
 
