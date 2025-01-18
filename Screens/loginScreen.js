@@ -29,7 +29,7 @@ const LoginScreen = ({ navigation }) => {
 
     const handleLogin = async () => {
         setIsLoading(true);
-        API_KEY = "AIzaSyBLUHWBolUBywqJJYLuEkv48zhLOklh-TQ";
+        API_KEY = "";
         // Basic validation
         if (!email || !password) {
             Alert.alert('Error', 'Please fill in all fields');
